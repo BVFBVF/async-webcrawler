@@ -6,6 +6,7 @@ import multiprocessing
 import time
 import psycopg2
 import re
+import psutil
 
 
 # SQL
@@ -98,15 +99,15 @@ def check_safety(url):
         print('GoogleSafeBrowsing: ', gsb_verdict)
         return 'Website is considered undesirable or dangerous'
 
-def crawl(box):
+def crawl(urls, result_queue):
     options = webdriver.ChromeOptions()
     options.add_argument('--headless')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
     driver = uc.Chrome(options=options)
     time.sleep(7)
-    for i in range(len(box)):
-        driver.get(box[i])
+    for url in urls:
+        driver.get(url)
         last_height = driver.execute_script('return document.body.scrollHeight')
         while True:
             driver.execute_script('window.scrollTo(0, document.body.scrollHeight);')
@@ -118,44 +119,25 @@ def crawl(box):
         tags = driver.find_elements(By.XPATH, '//*')
         for tag in tags:
             if tag.get_attribute('href') is not None and all(re.fullmatch(mask, tag.get_attribute('href')) for mask in check_robots(tag.get_attribute('href'))) is False:
-                founded_urls.append(tag.get_attribute('href'))
+                processed_urls.append(tag.get_attribute('href'))
                 result_queue.put(tag.get_attribute('href'))
     driver.quit()
-def worker(urls):
-    _urls_ = []
-    for x in range(count_cores):  # 0
-        __urls__ = []
-        for process in range(len(processes)):  # 0 core
-            for i in range(x + process, len(urls), count_cores):  # (0, 19, 4) = (1, 5, 9), (1, 19, 4) = (2, 6, 10), (2, 19, 4) = (3, 7, 11)
-                if check_safety(urls[i]) == 'Website must be safe' and urls[i] not in processed_urls:
-                    __urls__.append(urls[i])
-        _urls_.append(__urls__)
-    return _urls_
 if __name__ == '__main__':
     print('Enter the initial URL for webcrawler to start working :')
     first_url = input()
     count_cores = multiprocessing.cpu_count
-    founded_urls = []
     global_urls = []
     processed_urls = []
     global_urls.append(first_url)
     processes = []
     result_queue = multiprocessing.Queue()
     while True:
-        for i in range(count_cores):
-            processes.append(multiprocessing.Process(target=crawl, args=(worker(global_urls)[i],)))
-        for process in processes:
-            process.start()
-        for process in processes:
-            process.join()
-        all_completed = all(not process.is_alive() for process in processes)
-        if all_completed:
+        chunks = [global_urls[i:i + count_cores] for i in range(0, len(global_urls), count_cores)]
+        with multiprocessing.Pool(processes=count_cores) as pool:
+            for chunk in chunks:
+                pool.apply_async(crawl, args=(chunk, result_queue))
+            pool.join()
             global_urls.clear()
-            global_urls.extend(result_queue.get())
             while not result_queue.empty():
-                result_queue.get()
-            for process in processes:
-                process.kill()
-            processes.clear()
-
-
+                if result_queue.get() not in processed_urls:
+                    global_urls.extend(result_queue.get())
