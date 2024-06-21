@@ -3,20 +3,18 @@ import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 import multiprocessing
-import asyncio
 import time
 import psycopg2
 import re
 
 
-count_cores = multiprocessing.cpu_count
-
-
-global_urls = []
-processed_urls = []
-
 # SQL
 db_config = {
+    'dbname': 'postgres',
+    'user': 'postgres',
+    'password': 'marenmiroyazza12345',
+    'host': 'localhost',
+    'port': '5432'
 }
 connection = psycopg2.connect(**db_config)
 cursor = connection.cursor()
@@ -100,27 +98,28 @@ def check_safety(url):
         print('GoogleSafeBrowsing: ', gsb_verdict)
         return 'Website is considered undesirable or dangerous'
 
-async def crawl(boxes):
+def crawl(box):
     options = webdriver.ChromeOptions()
     options.add_argument('--headless')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
     driver = uc.Chrome(options=options)
     time.sleep(7)
-    driver.get(boxes[i])
-    last_height = driver.execute_script('return document.body.scrollHeight')
-    while True:
-        driver.execute_script('window.scrollTo(0, document.body.scrollHeight);')
-        time.sleep(2)
-        new_height = driver.execute_script('return document.body.scrollHeight')
-        if last_height == new_height:
-            break
-        last_height = new_height
-    tags = driver.find_elements(By.XPATH, '//*')
-    for tag in tags:
-        if tag.get_attribute('href') is not None and all(re.fullmatch(mask, tag.get_attribute('href')) for mask in check_robots(tag.get_attribute('href'))) is False:
-            global_urls.append(tag.get_attribute('href'))
-            processed_urls.append(tag.get_attribute('href'))
+    for i in range(len(box)):
+        driver.get(box[i])
+        last_height = driver.execute_script('return document.body.scrollHeight')
+        while True:
+            driver.execute_script('window.scrollTo(0, document.body.scrollHeight);')
+            time.sleep(2)
+            new_height = driver.execute_script('return document.body.scrollHeight')
+            if last_height == new_height:
+                break
+            last_height = new_height
+        tags = driver.find_elements(By.XPATH, '//*')
+        for tag in tags:
+            if tag.get_attribute('href') is not None and all(re.fullmatch(mask, tag.get_attribute('href')) for mask in check_robots(tag.get_attribute('href'))) is False:
+                founded_urls.append(tag.get_attribute('href'))
+                result_queue.put(tag.get_attribute('href'))
     driver.quit()
 def worker(urls):
     _urls_ = []
@@ -132,9 +131,31 @@ def worker(urls):
                     __urls__.append(urls[i])
         _urls_.append(__urls__)
     return _urls_
-for i in range(count_cores):
-    processes = [multiprocessing.Process(target=crawl, args=(worker(global_urls)[i],)) for j in range(count_cores)]
 if __name__ == '__main__':
-    print('Enter URL from webcrawler should start')
+    print('Enter the initial URL for webcrawler to start working :')
     first_url = input()
+    count_cores = multiprocessing.cpu_count
+    founded_urls = []
+    global_urls = []
+    processed_urls = []
     global_urls.append(first_url)
+    processes = []
+    result_queue = multiprocessing.Queue()
+    while True:
+        for i in range(count_cores):
+            processes.append(multiprocessing.Process(target=crawl, args=(worker(global_urls)[i],)))
+        for process in processes:
+            process.start()
+        for process in processes:
+            process.join()
+        all_completed = all(not process.is_alive() for process in processes)
+        if all_completed:
+            global_urls.clear()
+            global_urls.extend(result_queue.get())
+            while not result_queue.empty():
+                result_queue.get()
+            for process in processes:
+                process.kill()
+            processes.clear()
+
+
