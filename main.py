@@ -26,15 +26,13 @@ table = 'urls_keywords'
 
 global_urls = []
 
-
-def initialize_driver():
+def check_robots(url):
     options = webdriver.ChromeOptions()
     options.add_argument('--headless')
     options.add_argument('--lang=en')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
-    return uc.Chrome(options=options)
-def check_robots(url, driver):
+    driver = uc.Chrome(options=options)
     slashes = 0
     for i in range(len(url)):
         if url[i] == '/':
@@ -80,7 +78,13 @@ def check_robots(url, driver):
     except Exception as error:
         print('check_robots: ', error)
         driver.quit()
-def check_safety(url, driver):
+def check_safety(url):
+    options = webdriver.ChromeOptions()
+    options.add_argument('--headless')
+    options.add_argument('--lang=en')
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-dev-shm-usage')
+    driver = uc.Chrome(options=options)
     driver.get('https://www.virustotal.com/gui/home/url')
     time.sleep(3)
     s_h_h = driver.find_element(By.CSS_SELECTOR, 'home-view')
@@ -119,10 +123,16 @@ def check_safety(url, driver):
         print('GoogleSafeBrowsing: ', gsb_verdict)
         return 'Website is considered undesirable or dangerous'
 
-def crawl(urls, result_queue, processed_urls, driver):
+def crawl(urls, result_queue, processed_urls):
+    options = webdriver.ChromeOptions()
+    options.add_argument('--headless')
+    options.add_argument('--lang=en')
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-dev-shm-usage')
+    driver = uc.Chrome(options=options)
     time.sleep(7)
     for url in urls:
-        if check_safety(url, driver) == 'Website must be safe':
+        if check_safety(url) == 'Website must be safe':
             processed_urls.append(url)
             driver.get(url)
             last_height = driver.execute_script('return document.body.scrollHeight')
@@ -134,7 +144,7 @@ def crawl(urls, result_queue, processed_urls, driver):
                     break
                 last_height = new_height
             tags = driver.find_elements(By.XPATH, '//*')
-            dismasks = check_robots(url, driver)
+            dismasks = check_robots(url)
             for tag in tags:
                 if tag.get_attribute('href') is not None and (all(re.fullmatch(mask, tag.get_attribute('href')) for mask in dismasks) is False or dismasks == False) and tag.get_attribute('href') not in processed_urls:
                     result_queue.put(tag.get_attribute('href'))
@@ -144,26 +154,20 @@ def crawl(urls, result_queue, processed_urls, driver):
 def confirmation():
     print('Are you sure to stop the programm? (y/n | y - yes; n - no)')
     sure = input()
-    if sure == 'y':
+    if sure.lower() == 'y':
         return True
     else:
         return False
 if __name__ == '__main__':
     print('Enter the initial URL for webcrawler to start working :')
     first_url = input()
-    if check_safety(first_url, driver) == 'Website must be safe':
+    if check_safety(first_url) == 'Website must be safe':
         global_urls.append(first_url)
     else:
         print('This website can be dangerous. Please choose another one.')
     processed_urls = []
     count_cores = multiprocessing.cpu_count()
     result_queue = multiprocessing.Queue()
-    options = webdriver.ChromeOptions()
-    options.add_argument('--headless')
-    options.add_argument('--lang=en')
-    options.add_argument('--no-sandbox')
-    options.add_argument('--disable-dev-shm-usage')
-    driver = uc.Chrome(options=options)
     iteration = 1
     while True:
         print('ITERATION ', iteration)
@@ -172,7 +176,7 @@ if __name__ == '__main__':
             chunks.append(global_urls[0 + i:math.ceil(len(global_urls) / count_cores) + i:])
         with multiprocessing.Pool(processes=count_cores) as pool:
             for chunk in chunks:
-                pool.apply_async(crawl, args=(chunk, processed_urls, result_queue))
+                pool.apply_async(crawl, args=(chunk, result_queue, processed_urls))
                 print('Count of chunks: ', len(chunks))
                 print('chunk: ', chunk)
             pool.join()
@@ -184,8 +188,7 @@ if __name__ == '__main__':
         iteration += 1
         os.system('cls')
         if keyboard.is_pressed('end'):
-            if confirmation() == 'True':
-                driver.quit()
+            if confirmation():
                 exit(print('End button has been pressed.'))
             else:
                 pass
