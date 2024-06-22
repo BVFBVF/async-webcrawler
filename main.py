@@ -135,7 +135,7 @@ if __name__ == '__main__':
     processed_urls = []
     result_queue = multiprocessing.Queue()
     while True:
-        chunks = [global_urls[i:i + count_cores] for i in range(0, len(global_urls), count_cores)]
+        chunks = [global_urls[i:i + len(global_urls) // count_cores + 1] for i in range(0, len(global_urls), len(global_urls) // count_cores)]
         with multiprocessing.Pool(processes=count_cores) as pool:
             for chunk in chunks:
                 pool.apply_async(crawl, args=(chunk, processed_urls, result_queue))
