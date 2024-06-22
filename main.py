@@ -8,6 +8,7 @@ import time
 import psycopg2
 import re
 import psutil
+import math
 
 
 # SQL
@@ -135,7 +136,9 @@ if __name__ == '__main__':
     processed_urls = []
     result_queue = multiprocessing.Queue()
     while True:
-        chunks = [global_urls[i:i + len(global_urls) // count_cores + 1] for i in range(0, len(global_urls), len(global_urls) // count_cores)]
+        chunks = []
+        for i in range(0, len(global_urls), math.ceil(len(global_urls) / count_cores)):
+            chunks.append(global_urls[0 + i:math.ceil(len(global_urls) / count_cores) + i:])
         with multiprocessing.Pool(processes=count_cores) as pool:
             for chunk in chunks:
                 pool.apply_async(crawl, args=(chunk, processed_urls, result_queue))
