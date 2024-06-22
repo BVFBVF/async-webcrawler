@@ -37,8 +37,8 @@ def check_robots(url):
     try:
         driver.get(url_robots)
         time.sleep(7)
-        if '404' in driver.page_source:
-            print('robots.txt not found')
+        if 'Disallow' not in driver.page_source:
+            print('Robots.txt not found or no disallowed masks was found.')
             return False
         else:
             print(url_robots)
@@ -130,8 +130,9 @@ def crawl(urls, result_queue, processed_urls):
                     break
                 last_height = new_height
             tags = driver.find_elements(By.XPATH, '//*')
+            dismasks = check_robots(url)
             for tag in tags:
-                if tag.get_attribute('href') is not None and (all(re.fullmatch(mask, tag.get_attribute('href')) for mask in check_robots(tag.get_attribute('href'))) is False or check_robots(tag.get_attribute('href')) == False) and tag.get_attribute('href') not in processed_urls:
+                if tag.get_attribute('href') is not None and (all(re.fullmatch(mask, tag.get_attribute('href')) for mask in dismasks) is False or dismasks == False) and tag.get_attribute('href') not in processed_urls:
                     result_queue.put(tag.get_attribute('href'))
         else:
             print('This website can be dangerous: ', url)
