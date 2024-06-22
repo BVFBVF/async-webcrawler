@@ -8,6 +8,7 @@ import psycopg2
 import re
 import math
 import os
+import keyboard
 
 
 # SQL
@@ -26,22 +27,36 @@ table = 'urls_keywords'
 global_urls = []
 
 
-def check_robots(url):
+def initialize_driver():
     options = webdriver.ChromeOptions()
     options.add_argument('--headless')
+    options.add_argument('--lang=en')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
-    driver = uc.Chrome(options=options)
-    url_robots = url + '/robots.txt'
+    return uc.Chrome(options=options)
+def check_robots(url, driver):
+    slashes = 0
+    for i in range(len(url)):
+        if url[i] == '/':
+            slashes += 1
+        if slashes == 3:
+            url = url[:i]
+            break
+    print(url)
+    if url[-1] == '/':
+        url_robots = url + 'robots.txt'
+    else:
+        url_robots = url + '/robots.txt'
     dis_masks = []
     try:
         driver.get(url_robots)
         time.sleep(7)
         if 'Disallow' not in driver.page_source:
+            print(url_robots)
             print('Robots.txt not found or no disallowed masks was found.')
+            driver.quit()
             return False
         else:
-            print(url_robots)
             robots_txt = driver.page_source
             robots_txt = robots_txt.split('\n')
             robots_txt += ['\n'] * 100
@@ -60,19 +75,12 @@ def check_robots(url):
                                 d_u_m = d_u_m.replace('//', '/', d_u_m.count('//') - 1)
                                 d_u_m = d_u_m[::-1]
                             dis_masks.append(d_u_m)
+            driver.quit()
+            return dis_masks
     except Exception as error:
         print('check_robots: ', error)
         driver.quit()
-    finally:
-        driver.quit()
-        return dis_masks
-def check_safety(url):
-    options = webdriver.ChromeOptions()
-    options.add_argument('--headless')
-    options.add_argument('--lang=en')
-    options.add_argument('--no-sandbox')
-    options.add_argument('--disable-dev-shm-usage')
-    driver = webdriver.Chrome(options=options)
+def check_safety(url, driver):
     driver.get('https://www.virustotal.com/gui/home/url')
     time.sleep(3)
     s_h_h = driver.find_element(By.CSS_SELECTOR, 'home-view')
@@ -106,19 +114,15 @@ def check_safety(url):
         return 'Website must be safe'
     else:
         driver.quit()
+        print('Website is considered undesirable or dangerous')
         print('VirusTotal: ', vt_verdict_text)
         print('GoogleSafeBrowsing: ', gsb_verdict)
         return 'Website is considered undesirable or dangerous'
 
-def crawl(urls, result_queue, processed_urls):
-    options = webdriver.ChromeOptions()
-    options.add_argument('--headless')
-    options.add_argument('--no-sandbox')
-    options.add_argument('--disable-dev-shm-usage')
-    driver = uc.Chrome(options=options)
+def crawl(urls, result_queue, processed_urls, driver):
     time.sleep(7)
     for url in urls:
-        if check_safety(url) == 'Website must be safe':
+        if check_safety(url, driver) == 'Website must be safe':
             processed_urls.append(url)
             driver.get(url)
             last_height = driver.execute_script('return document.body.scrollHeight')
@@ -130,23 +134,36 @@ def crawl(urls, result_queue, processed_urls):
                     break
                 last_height = new_height
             tags = driver.find_elements(By.XPATH, '//*')
-            dismasks = check_robots(url)
+            dismasks = check_robots(url, driver)
             for tag in tags:
                 if tag.get_attribute('href') is not None and (all(re.fullmatch(mask, tag.get_attribute('href')) for mask in dismasks) is False or dismasks == False) and tag.get_attribute('href') not in processed_urls:
                     result_queue.put(tag.get_attribute('href'))
         else:
             print('This website can be dangerous: ', url)
     driver.quit()
+def confirmation():
+    print('Are you sure to stop the programm? (y/n | y - yes; n - no)')
+    sure = input()
+    if sure == 'y':
+        return True
+    else:
+        return False
 if __name__ == '__main__':
     print('Enter the initial URL for webcrawler to start working :')
     first_url = input()
-    if check_safety(first_url) == 'Website must be safe':
+    if check_safety(first_url, driver) == 'Website must be safe':
         global_urls.append(first_url)
     else:
         print('This website can be dangerous. Please choose another one.')
     processed_urls = []
     count_cores = multiprocessing.cpu_count()
     result_queue = multiprocessing.Queue()
+    options = webdriver.ChromeOptions()
+    options.add_argument('--headless')
+    options.add_argument('--lang=en')
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-dev-shm-usage')
+    driver = uc.Chrome(options=options)
     iteration = 1
     while True:
         print('ITERATION ', iteration)
@@ -166,3 +183,9 @@ if __name__ == '__main__':
                 print('Crawled URL: ', url_q)
         iteration += 1
         os.system('cls')
+        if keyboard.is_pressed('end'):
+            if confirmation() == 'True':
+                driver.quit()
+                exit(print('End button has been pressed.'))
+            else:
+                pass
