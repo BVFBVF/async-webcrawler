@@ -3,12 +3,11 @@ import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 import multiprocessing
-from multiprocessing import Pool
 import time
 import psycopg2
 import re
-import psutil
 import math
+import os
 
 
 # SQL
@@ -38,26 +37,31 @@ def check_robots(url):
     try:
         driver.get(url_robots)
         time.sleep(7)
-        robots_txt = driver.page_source
-        robots_txt = robots_txt.split('\n')
-        robots_txt += ['\n'] * 100
-        disallow_pattern = re.compile(r'Disallow: *(.*)')
-        for i in range(len(robots_txt)):
-            if robots_txt[i] == 'User-agent: *':
-                for x in range(1, 100):
-                    match_disallowed = disallow_pattern.match(robots_txt[i + x])
-                    if match_disallowed is not None:
-                        disallowed_url_mask = match_disallowed.group(1)
-                        disallowed_url_mask = re.escape(disallowed_url_mask)
-                        disallowed_url_mask = disallowed_url_mask.replace(r'\*', '.*')
-                        d_u_m = url + disallowed_url_mask
-                        if d_u_m.count('//') > 1:
-                            d_u_m = d_u_m[::-1]
-                            d_u_m = d_u_m.replace('//', '/', d_u_m.count('//') - 1)
-                            d_u_m = d_u_m[::-1]
-                        dis_masks.append(d_u_m)
-    except Exception as ex:
-        print(ex)
+        if '404' in driver.page_source:
+            print('robots.txt not found')
+            return False
+        else:
+            print(url_robots)
+            robots_txt = driver.page_source
+            robots_txt = robots_txt.split('\n')
+            robots_txt += ['\n'] * 100
+            disallow_pattern = re.compile(r'Disallow: *(.*)')
+            for i in range(len(robots_txt)):
+                if robots_txt[i] == 'User-agent: *':
+                    for x in range(1, 100):
+                        match_disallowed = disallow_pattern.match(robots_txt[i + x])
+                        if match_disallowed is not None:
+                            disallowed_url_mask = match_disallowed.group(1)
+                            disallowed_url_mask = re.escape(disallowed_url_mask)
+                            disallowed_url_mask = disallowed_url_mask.replace(r'\*', '.*')
+                            d_u_m = url + disallowed_url_mask
+                            if d_u_m.count('//') > 1:
+                                d_u_m = d_u_m[::-1]
+                                d_u_m = d_u_m.replace('//', '/', d_u_m.count('//') - 1)
+                                d_u_m = d_u_m[::-1]
+                            dis_masks.append(d_u_m)
+    except Exception as error:
+        print('check_robots: ', error)
         driver.quit()
     finally:
         driver.quit()
@@ -98,6 +102,7 @@ def check_safety(url):
         gsb_verdict = driver.find_element(By.CSS_SELECTOR, 'span[_ngcontent-ng-c3157161489]').text
     if vt_verdict_text.strip() == 'No security vendors flagged this URL as malicious' and gsb_verdict == 'No unsafe content found':
         driver.quit()
+        print('Website must be safe')
         return 'Website must be safe'
     else:
         driver.quit()
@@ -113,38 +118,50 @@ def crawl(urls, result_queue, processed_urls):
     driver = uc.Chrome(options=options)
     time.sleep(7)
     for url in urls:
-        driver.get(url)
-        last_height = driver.execute_script('return document.body.scrollHeight')
-        while True:
-            driver.execute_script('window.scrollTo(0, document.body.scrollHeight);')
-            time.sleep(2)
-            new_height = driver.execute_script('return document.body.scrollHeight')
-            if last_height == new_height:
-                break
-            last_height = new_height
-        tags = driver.find_elements(By.XPATH, '//*')
-        for tag in tags:
-            if tag.get_attribute('href') is not None and all(re.fullmatch(mask, tag.get_attribute('href')) for mask in check_robots(tag.get_attribute('href'))) is False:
-                processed_urls.append(tag.get_attribute('href'))
-                result_queue.put(tag.get_attribute('href'))
+        if check_safety(url) == 'Website must be safe':
+            processed_urls.append(url)
+            driver.get(url)
+            last_height = driver.execute_script('return document.body.scrollHeight')
+            while True:
+                driver.execute_script('window.scrollTo(0, document.body.scrollHeight);')
+                time.sleep(2)
+                new_height = driver.execute_script('return document.body.scrollHeight')
+                if last_height == new_height:
+                    break
+                last_height = new_height
+            tags = driver.find_elements(By.XPATH, '//*')
+            for tag in tags:
+                if tag.get_attribute('href') is not None and (all(re.fullmatch(mask, tag.get_attribute('href')) for mask in check_robots(tag.get_attribute('href'))) is False or check_robots(tag.get_attribute('href')) == False) and tag.get_attribute('href') not in processed_urls:
+                    result_queue.put(tag.get_attribute('href'))
+        else:
+            print('This website can be dangerous: ', url)
     driver.quit()
 if __name__ == '__main__':
     print('Enter the initial URL for webcrawler to start working :')
     first_url = input()
-    count_cores = multiprocessing.cpu_count()
-    global_urls.append(first_url)
+    if check_safety(first_url) == 'Website must be safe':
+        global_urls.append(first_url)
+    else:
+        print('This website can be dangerous. Please choose another one.')
     processed_urls = []
+    count_cores = multiprocessing.cpu_count()
     result_queue = multiprocessing.Queue()
+    iteration = 1
     while True:
+        print('ITERATION ', iteration)
         chunks = []
         for i in range(0, len(global_urls), math.ceil(len(global_urls) / count_cores)):
             chunks.append(global_urls[0 + i:math.ceil(len(global_urls) / count_cores) + i:])
         with multiprocessing.Pool(processes=count_cores) as pool:
             for chunk in chunks:
                 pool.apply_async(crawl, args=(chunk, processed_urls, result_queue))
+                print('Count of chunks: ', len(chunks))
+                print('chunk: ', chunk)
             pool.join()
             global_urls.clear()
             while not result_queue.empty():
                 url_q = result_queue.get()
-                if url_q not in processed_urls:
-                    global_urls.extend(url_q)
+                global_urls.extend(url_q)
+                print('Crawled URL: ', url_q)
+        iteration += 1
+        os.system('cls')
