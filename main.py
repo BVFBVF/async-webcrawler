@@ -3,6 +3,7 @@ import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 import multiprocessing
+from multiprocessing import Pool
 import time
 import psycopg2
 import re
@@ -20,6 +21,10 @@ db_config = {
 connection = psycopg2.connect(**db_config)
 cursor = connection.cursor()
 table = 'urls_keywords'
+
+
+global_urls = []
+
 
 def check_robots(url):
     options = webdriver.ChromeOptions()
@@ -99,7 +104,7 @@ def check_safety(url):
         print('GoogleSafeBrowsing: ', gsb_verdict)
         return 'Website is considered undesirable or dangerous'
 
-def crawl(urls, result_queue):
+def crawl(urls, result_queue, processed_urls):
     options = webdriver.ChromeOptions()
     options.add_argument('--headless')
     options.add_argument('--no-sandbox')
@@ -125,19 +130,18 @@ def crawl(urls, result_queue):
 if __name__ == '__main__':
     print('Enter the initial URL for webcrawler to start working :')
     first_url = input()
-    count_cores = multiprocessing.cpu_count
-    global_urls = []
-    processed_urls = []
+    count_cores = multiprocessing.cpu_count()
     global_urls.append(first_url)
-    processes = []
+    processed_urls = []
     result_queue = multiprocessing.Queue()
     while True:
         chunks = [global_urls[i:i + count_cores] for i in range(0, len(global_urls), count_cores)]
         with multiprocessing.Pool(processes=count_cores) as pool:
             for chunk in chunks:
-                pool.apply_async(crawl, args=(chunk, result_queue))
+                pool.apply_async(crawl, args=(chunk, processed_urls, result_queue))
             pool.join()
             global_urls.clear()
             while not result_queue.empty():
-                if result_queue.get() not in processed_urls:
-                    global_urls.extend(result_queue.get())
+                url_q = result_queue.get()
+                if url_q not in processed_urls:
+                    global_urls.extend(url_q)
