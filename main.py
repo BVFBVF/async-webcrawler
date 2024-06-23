@@ -32,7 +32,7 @@ def check_robots(url):
     options.add_argument('--lang=en')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
-    driver = uc.Chrome(options=options)
+    driver = uc.Chrome(browser_executable_path='C:\Program Files\Google\Chrome\Application\chrome.exe', options=options)
     slashes = 0
     for i in range(len(url)):
         if url[i] == '/':
@@ -84,7 +84,7 @@ def check_safety(url):
     options.add_argument('--lang=en')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
-    driver = uc.Chrome(options=options)
+    driver = uc.Chrome(browser_executable_path='C:\Program Files\Google\Chrome\Application\chrome.exe', options=options)
     driver.get('https://www.virustotal.com/gui/home/url')
     time.sleep(3)
     s_h_h = driver.find_element(By.CSS_SELECTOR, 'home-view')
@@ -129,7 +129,7 @@ def crawl(urls, result_queue, processed_urls):
     options.add_argument('--lang=en')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
-    driver = uc.Chrome(options=options)
+    driver = uc.Chrome(browser_executable_path='C:\Program Files\Google\Chrome\Application\chrome.exe', options=options)
     time.sleep(7)
     for url in urls:
         if check_safety(url) == 'Website must be safe':
@@ -156,7 +156,7 @@ def confirmation():
     sure = input()
     if sure.lower() == 'y':
         return True
-    else:
+    elif sure.lower() == 'n':
         return False
 if __name__ == '__main__':
     print('Enter the initial URL for webcrawler to start working :')
@@ -170,6 +170,7 @@ if __name__ == '__main__':
     result_queue = multiprocessing.Queue()
     iteration = 1
     while True:
+        time.time()
         print('ITERATION ', iteration)
         chunks = []
         for i in range(0, len(global_urls), math.ceil(len(global_urls) / count_cores)):
@@ -185,8 +186,8 @@ if __name__ == '__main__':
                 url_q = result_queue.get()
                 global_urls.extend(url_q)
                 print('Crawled URL: ', url_q)
+        time.time()
         iteration += 1
-        os.system('cls')
         if keyboard.is_pressed('end'):
             if confirmation():
                 exit(print('End button has been pressed.'))
