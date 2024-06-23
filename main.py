@@ -113,11 +113,19 @@ def check_safety(url):
             break
         elif span.text == 'No available data':
             check_safety(url)
-    if vt_verdict_text.strip() == 'No security vendors flagged this URL as malicious' and (gsb_verdict[0] == 'No unsafe content found' or gsb_verdict[0] == 'Check a specific URL'):
-        driver.close()
-        driver.quit()
-        print('Website must be safe')
-        return 'Website must be safe'
+    if len(gsb_verdict) != 0:
+        if vt_verdict_text.strip() == 'No security vendors flagged this URL as malicious' and (gsb_verdict[0] == 'No unsafe content found' or gsb_verdict[0] == 'Check a specific URL'):
+            driver.close()
+            driver.quit()
+            print('Website must be safe')
+            return 'Website must be safe'
+        else:
+            driver.close()
+            driver.quit()
+            print('Website is considered undesirable or dangerous')
+            print('VirusTotal: ', vt_verdict_text)
+            print('GoogleSafeBrowsing: ', gsb_verdict)
+            return 'Website is considered undesirable or dangerous'
     else:
         driver.close()
         driver.quit()
@@ -179,29 +187,37 @@ if __name__ == '__main__':
         print('This website can be dangerous. Please choose another one.')
     processed_urls = []
     count_cores = multiprocessing.cpu_count()
-    result_queue = multiprocessing.Queue()
-    iteration = 1
+    with multiprocessing.Manager() as manager:
+        result_queue = manager.Queue()
+        iteration = 1
     while True:
-        time.time()
+        start_time = time.time()
         print('ITERATION ', iteration)
         chunks = []
         for i in range(0, len(global_urls), math.ceil(len(global_urls) / count_cores)):
             chunks.append(global_urls[0 + i:math.ceil(len(global_urls) / count_cores) + i:])
         with multiprocessing.Pool(processes=count_cores) as pool:
+            async_results = []
             for chunk in chunks:
-                pool.apply_async(crawl, args=(chunk, result_queue, processed_urls))
+                async_result = pool.apply_async(crawl, args=(chunk, result_queue, processed_urls))
+                async_results.append(async_result)
                 print('Count of chunks: ', len(chunks))
                 print('chunk: ', chunk)
-            pool.join()
-            pool.close()
             global_urls.clear()
-            while not result_queue.empty():
-                url_q = result_queue.get()
-                global_urls.extend(url_q)
-                print('Crawled URL: ', url_q)
-        time.time()
+            for async_result in async_results:
+                try:
+                    res = async_result.get()
+                    print(res)
+                except Exception as error:
+                    print(error)
+        while not result_queue.empty():
+            url_q = result_queue.get()
+            global_urls.extend(url_q)
+            print('Crawled URL: ', url_q)
+        end_time = time.time()
+        print('Elapsed time: ', end_time - start_time)
         iteration += 1
-        if keyboard.is_pressed('end'):
+        if keyboard.is_pressed('-'):
             if confirmation():
                 exit(print('Exiting...'))
             else:
