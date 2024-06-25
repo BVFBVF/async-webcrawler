@@ -1,12 +1,11 @@
 import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
-import multiprocessing
 import time
 import psycopg2
 import re
-import math
 import keyboard
+import asyncio
 
 
 """# SQL
@@ -75,7 +74,6 @@ def check_robots(url):
 def check_safety(url):
     gsb_verdict = []
     options = uc.ChromeOptions()
-    options.add_argument('--headless')
     options.add_argument('--lang=en')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
@@ -113,6 +111,7 @@ def check_safety(url):
             break
         elif span.text == 'No available data':
             check_safety(url)
+            print('No available data. Trying one more time...')
     if len(gsb_verdict) != 0:
         if vt_verdict_text.strip() == 'No security vendors flagged this URL as malicious' and (gsb_verdict[0] == 'No unsafe content found' or gsb_verdict[0] == 'Check a specific URL'):
             driver.close()
@@ -133,7 +132,7 @@ def check_safety(url):
         print('VirusTotal: ', vt_verdict_text)
         print('GoogleSafeBrowsing: ', gsb_verdict)
         return 'Website is considered undesirable or dangerous'
-def crawl(urls, result_queue, processed_urls):
+async def crawl(urls, result_queue, processed_urls):
     options = uc.ChromeOptions()
     options.add_argument('--headless')
     options.add_argument('--lang=en')
@@ -159,7 +158,7 @@ def crawl(urls, result_queue, processed_urls):
                 dismasks = check_robots(url)
                 for tag in tags:
                     if tag.get_attribute('href') is not None and (all(re.fullmatch(mask, tag.get_attribute('href')) for mask in dismasks) is False or dismasks == False) and tag.get_attribute('href') not in processed_urls:
-                        result_queue.put(tag.get_attribute('href'))
+                        global_urls.append(tag.get_attribute('href'))
             else:
                 print('This website can be dangerous: ', url)
                 break
@@ -179,46 +178,32 @@ def confirmation():
     elif sure.lower() == 'n':
         return False
 if __name__ == '__main__':
-    print('Enter the initial URL for webcrawler to start working :')
-    first_url = input()
-    if check_safety(first_url) == 'Website must be safe':
-        global_urls.append(first_url)
-    else:
-        print('This website can be dangerous. Please choose another one.')
-    processed_urls = []
-    count_cores = multiprocessing.cpu_count()
-    with multiprocessing.Manager() as manager:
-        result_queue = manager.Queue()
-        iteration = 1
     while True:
-        start_time = time.time()
-        print('ITERATION ', iteration)
-        chunks = []
-        for i in range(0, len(global_urls), math.ceil(len(global_urls) / count_cores)):
-            chunks.append(global_urls[0 + i:math.ceil(len(global_urls) / count_cores) + i:])
-        with multiprocessing.Pool(processes=count_cores) as pool:
-            async_results = []
-            for chunk in chunks:
-                async_result = pool.apply_async(crawl, args=(chunk, result_queue, processed_urls))
-                async_results.append(async_result)
-                print('Count of chunks: ', len(chunks))
-                print('chunk: ', chunk)
+        print('Enter the initial URL for webcrawler to start working :')
+        first_url = input()
+        if check_safety(first_url) == 'Website must be safe':
+            global_urls.append(first_url)
+            break
+        else:
+            print('This website can be dangerous. Please choose another one.')
+    processed_urls = []
+    async def main(global_urls):
+        iteration = 1
+        while True:
+            print('ITERATION ', iteration)
+            start_time = time.time()
+            tasks = []
+            for url in global_urls:
+                tasks.append(crawl(url))
+            await asyncio.gather(*tasks)
             global_urls.clear()
-            for async_result in async_results:
-                try:
-                    res = async_result.get()
-                    print(res)
-                except Exception as error:
-                    print(error)
-        while not result_queue.empty():
-            url_q = result_queue.get()
-            global_urls.extend(url_q)
-            print('Crawled URL: ', url_q)
-        end_time = time.time()
-        print('Elapsed time: ', end_time - start_time)
-        iteration += 1
-        if keyboard.is_pressed('-'):
-            if confirmation():
-                exit(print('Exiting...'))
-            else:
-                pass
+            end_time = time.time()
+            print('Elapsed time: ', end_time - start_time)
+            iteration += 1
+            await asyncio.sleep(5)
+            if keyboard.is_pressed('end'):
+                if confirmation():
+                    exit('Exiting...')
+                else:
+                    pass
+    asyncio.run(main(global_urls))
