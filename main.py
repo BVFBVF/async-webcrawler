@@ -8,6 +8,7 @@ import keyboard
 import asyncio
 import threading
 from math import ceil
+import requests
 
 
 """# SQL
@@ -28,6 +29,47 @@ processed_urls = []
 error_printed = False
 last_error = None
 
+def check_robots_w_h(url):
+    url = get_main_url(get_http(url))
+    options = uc.ChromeOptions()
+    options.add_argument('--window-position=-10000,-10000')
+    options.add_argument('--lang=en')
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-dev-shm-usage')
+    driver = uc.Chrome(options=options)
+    if url[-1] == '/':
+        url_robots = url + 'robots.txt'
+    else:
+        url_robots = url + '/robots.txt'
+    dis_masks = []
+    try:
+        driver.get(url_robots)
+        time.sleep(5)
+        robots_txt = driver.page_source
+        robots_txt = robots_txt.split('\n')
+        robots_txt += ['\n'] * 100
+        disallow_pattern = re.compile(r'Disallow: *(.*)')
+        for i in range(len(robots_txt)):
+            if robots_txt[i] == 'User-agent: *':
+                for x in range(1, 100):
+                    match_disallowed = disallow_pattern.match(robots_txt[i + x])
+                    if match_disallowed is not None:
+                        disallowed_url_mask = match_disallowed.group(1)
+                        disallowed_url_mask = re.escape(disallowed_url_mask)
+                        disallowed_url_mask = disallowed_url_mask.replace(r'\*', '.*')
+                        d_u_m = url + disallowed_url_mask
+                        if d_u_m.count('//') > 1:
+                            d_u_m = d_u_m[::-1]
+                            d_u_m = d_u_m.replace('//', '/', d_u_m.count('//') - 1)
+                            d_u_m = d_u_m[::-1]
+                            dis_masks.append(d_u_m)
+    except Exception as error:
+        print(error)
+    finally:
+        driver.close()
+        driver.quit()
+        return dis_masks
+
 def check_robots(url):
     url = get_main_url(get_http(url))
     options = uc.ChromeOptions()
@@ -44,12 +86,8 @@ def check_robots(url):
     try:
         driver.get(url_robots)
         time.sleep(5)
-        if driver.title == 'Доступ ограничен':
-            time.sleep(10)
-            driver.refresh()
-            robots_txt = driver.page_source
-            robots_txt = robots_txt.split('\n')
-            robots_txt += ['\n'] * 100
+        if requests.get(url).status_code == 403:
+            return check_robots_w_h(url)
         else:
             robots_txt = driver.page_source
             robots_txt = robots_txt.split('\n')
@@ -68,16 +106,17 @@ def check_robots(url):
                                 d_u_m = d_u_m[::-1]
                                 d_u_m = d_u_m.replace('//', '/', d_u_m.count('//') - 1)
                                 d_u_m = d_u_m[::-1]
-                            dis_masks.append(d_u_m)
+                                dis_masks.append(d_u_m)
+    except Exception as error:
+        print(error)
+    finally:
         driver.close()
         driver.quit()
         return dis_masks
-    except Exception as error:
-        print('check_robots: ', error)
-        driver.close()
-        driver.quit()
+
 def check_safety(url):
     options = uc.ChromeOptions()
+    options.add_argument('--headless')
     options.add_argument('--lang=en')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
@@ -115,14 +154,56 @@ def check_safety(url):
                 print('VirusTotal: ', vt_verdict_text)
                 return 'Website is considered undesirable or dangerous'
         except Exception as error:
-            print('Error in check_safety. Trying one more time...')
+            print('Error, trying one more time. to learn more about the error, type: "info".')
             print(error)
+            time.sleep(10)
             check_safety(url)
     else:
         driver.close()
         driver.quit()
         print('Website is considered undesirable or dangerous')
         return 'Website is considered undesirable or dangerous'
+
+async def crawl_w_h(url, processed_urls):
+    global error_printed, last_error
+    results = []
+    while True:
+        options = uc.ChromeOptions()
+        options.add_argument('--window-position=-10000,-10000')
+        options.add_argument('--lang=en')
+        options.add_argument('--no-sandbox')
+        options.add_argument('--disable-dev-shm-usage')
+        driver = uc.Chrome(options=options)
+        time.sleep(5)
+        try:
+            print(url, 'w_h')
+            driver.get(url)
+            time.sleep(7)
+            last_height = driver.execute_script('return document.body.scrollHeight')
+            while True:
+                driver.execute_script('window.scrollTo(0, document.body.scrollHeight);')
+                time.sleep(2)
+                new_height = driver.execute_script('return document.body.scrollHeight')
+                if last_height == new_height:
+                    break
+                last_height = new_height
+            tags = driver.find_elements(By.XPATH, '//*')
+            dismasks = check_robots(url)
+            for tag in tags:
+                if tag.get_attribute('href') is not None and (all(re.fullmatch(mask, tag.get_attribute('href')) for mask in dismasks if len(dismasks) != 0) is False or dismasks == False) and tag.get_attribute('href') not in processed_urls and get_http(tag.get_attribute('href')) not in processed_urls:
+                    results.append(tag.get_attribute('href'))
+                    processed_urls.append(tag.get_attribute('href'))
+            break
+        except Exception as error:
+            if error_printed == False:
+                print('Error while getting to url, trying one more time. to learn more about the error, type: "info".')
+                error_printed = True
+            last_error = error
+            time.sleep(15)
+        finally:
+            driver.close()
+            return results
+
 async def crawl(urls, processed_urls):
     global error_printed, last_error
     results = []
@@ -140,25 +221,29 @@ async def crawl(urls, processed_urls):
                     time.sleep(5)
                     try:
                         driver.get(url)
-                        time.sleep(7)
-                        last_height = driver.execute_script('return document.body.scrollHeight')
-                        while True:
-                            driver.execute_script('window.scrollTo(0, document.body.scrollHeight);')
-                            time.sleep(2)
-                            new_height = driver.execute_script('return document.body.scrollHeight')
-                            if last_height == new_height:
-                                break
-                            last_height = new_height
-                        tags = driver.find_elements(By.XPATH, '//*')
-                        dismasks = check_robots(url)
-                        for tag in tags:
-                            if tag.get_attribute('href') is not None and (all(re.fullmatch(mask, tag.get_attribute('href')) for mask in dismasks if len(dismasks) != 0) is False or dismasks == False) and tag.get_attribute('href') not in processed_urls:
-                                results.append(tag.get_attribute('href'))
-                                processed_urls.append(tag.get_attribute('href'))
-                        break
+                        s_code = requests.get(url).status_code
+                        if s_code == 403:
+                            print('This website have an antibot challenge system. Trying another way...')
+                            results.extend(await crawl_w_h(url, processed_urls))
+                            break
+                        else:
+                            time.sleep(7)
+                            last_height = driver.execute_script('return document.body.scrollHeight')
+                            while True:
+                                driver.execute_script('window.scrollTo(0, document.body.scrollHeight);')
+                                time.sleep(2)
+                                new_height = driver.execute_script('return document.body.scrollHeight')
+                                if last_height == new_height:
+                                    break
+                                last_height = new_height
+                            tags = driver.find_elements(By.XPATH, '//*')
+                            dismasks = check_robots(url)
+                            for tag in tags:
+                                if tag.get_attribute('href') is not None and (all(re.fullmatch(mask, tag.get_attribute('href')) for mask in dismasks if len(dismasks) != 0) is False or dismasks == False) and tag.get_attribute('href') not in processed_urls and get_http(tag.get_attribute('href')) not in processed_urls:
+                                    results.append(tag.get_attribute('href'))
+                                    processed_urls.append(tag.get_attribute('href'))
+                            break
                     except Exception as error:
-                        driver.close()
-                        driver.quit()
                         if error_printed == False:
                             print('Error while getting to url, trying one more time. to learn more about the error, type: "info".')
                             error_printed = True
@@ -166,11 +251,11 @@ async def crawl(urls, processed_urls):
                         time.sleep(15)
                     finally:
                         driver.close()
-                        driver.quit()
+                        return results
             else:
                 print('This website can be dangerous: ', url)
                 break
-    return results
+
 def confirmation():
     print('Are you sure to stop the programm? (y/n | y - yes; n - no)')
     sure = input()
@@ -196,6 +281,7 @@ def get_http(url):
     if not url.startswith('http://') and not url.startswith('https://'):
         url = 'http://' + url
     return url
+
 def get_main_url(url):
     if url[-1] != '/':
         url = url + '/'
@@ -207,6 +293,7 @@ def get_main_url(url):
             url = url[:i + 1]
             break
     return url
+
 async def main(urlss):
     iteration = 1
     while True:
@@ -220,7 +307,7 @@ async def main(urlss):
             print('Task', task_num, url)
         global_urls.clear()
         rslts = await asyncio.gather(*tasks)
-        flat_results = [item for sublist in rslts for item in sublist]
+        flat_results = [item for sublist in rslts for item in sublist if item is not None]
         filtered_results = [url for url in flat_results if not url.startswith('http://')]
         global_urls.extend(i for i in filtered_results)
         flat_results.clear()
@@ -235,20 +322,20 @@ async def main(urlss):
                 exit('Exiting...')
             else:
                 pass
+
 input_thread = threading.Thread(target=user_input_handler, daemon=True)
 input_thread.start()
 flag_thread = threading.Thread(target=reset_flag, daemon=True)
 flag_thread.start()
+
 if __name__ == '__main__':
     while True:
         print("Enter the initial URL or group of URL's (you need to put the url with a space) for webcrawler to start working:")
         first_url = input().strip()
         if len(first_url) == 0:
-            continue
+            pass
         urls_list = first_url.split()
         for url in urls_list:
             global_urls.append(url)
-            print(global_urls)
         break
     asyncio.run(main(global_urls))
-
