@@ -96,23 +96,28 @@ def check_safety(url):
         vt_url_input_field.send_keys(url)
         vt_url_input_field.send_keys(Keys.ENTER)
         time.sleep(7)
-        shadow_host_check_page = driver.find_element(By.CSS_SELECTOR, 'url-view')
-        shadow_root_from_shadow_host_check_page = driver.execute_script('return arguments[0].shadowRoot', shadow_host_check_page)
-        shadow_host_nested1 = shadow_root_from_shadow_host_check_page.find_element(By.CSS_SELECTOR, 'url-card')
-        shadow_root_nested1 = driver.execute_script('return arguments[0].shadowRoot', shadow_host_nested1)
-        vt_verdict = shadow_root_nested1.find_element(By.CSS_SELECTOR, 'span')
-        vt_verdict_text = driver.execute_script('return arguments[0].textContent', vt_verdict)
-        vt_verdict_l.append(vt_verdict_text.strip())
-        if vt_verdict_l[0] == 'No security vendors flagged this URL as malicious':
-            driver.close()
-            driver.quit()
-            return 'Website must be safe'
-        else:
-            driver.close()
-            driver.quit()
-            print('Website is considered undesirable or dangerous')
-            print('VirusTotal: ', vt_verdict_text)
-            return 'Website is considered undesirable or dangerous'
+        try:
+            shadow_host_check_page = driver.find_element(By.CSS_SELECTOR, 'url-view')
+            shadow_root_from_shadow_host_check_page = driver.execute_script('return arguments[0].shadowRoot', shadow_host_check_page)
+            shadow_host_nested1 = shadow_root_from_shadow_host_check_page.find_element(By.CSS_SELECTOR, 'url-card')
+            shadow_root_nested1 = driver.execute_script('return arguments[0].shadowRoot', shadow_host_nested1)
+            vt_verdict = shadow_root_nested1.find_element(By.CSS_SELECTOR, 'span')
+            vt_verdict_text = driver.execute_script('return arguments[0].textContent', vt_verdict)
+            vt_verdict_l.append(vt_verdict_text.strip())
+            if vt_verdict_l[0] == 'No security vendors flagged this URL as malicious':
+                driver.close()
+                driver.quit()
+                return 'Website must be safe'
+            else:
+                driver.close()
+                driver.quit()
+                print('Website is considered undesirable or dangerous')
+                print('VirusTotal: ', vt_verdict_text)
+                return 'Website is considered undesirable or dangerous'
+        except Exception as error:
+            print('Error in check_safety. Trying one more time...')
+            print(error)
+            check_safety(url)
     else:
         driver.close()
         driver.quit()
@@ -238,11 +243,12 @@ if __name__ == '__main__':
     while True:
         print("Enter the initial URL or group of URL's (you need to put the url with a space) for webcrawler to start working:")
         first_url = input().strip()
-        if not first_url:
+        if len(first_url) == 0:
             continue
         urls_list = first_url.split()
-        if not urls_list:
-            continue
         for url in urls_list:
             global_urls.append(url)
+            print(global_urls)
+        break
     asyncio.run(main(global_urls))
+
