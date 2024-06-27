@@ -297,24 +297,23 @@ def get_main_url(url):
 async def main(urlss):
     iteration = 1
     while True:
-        print('ITERATION', iteration)
         start_time = time.time()
         tasks = []
         task_num = 0
+        print("Finded URL's")
         for url in urlss:
             task_num += 1
             tasks.append(crawl([url], processed_urls))
             print('Task', task_num, url)
         global_urls.clear()
         rslts = await asyncio.gather(*tasks)
-        flat_results = [item for sublist in rslts for item in sublist if item is not None]
+        flat_results = [item for sublist in rslts if sublist is not None for item in sublist if item is not None]
         filtered_results = [url for url in flat_results if not url.startswith('http://')]
         global_urls.extend(i for i in filtered_results)
         flat_results.clear()
         filtered_results.clear()
         end_time = time.time()
         print('Elapsed time: ', ceil(end_time - start_time))
-        iteration += 1
         print('If you want to stop the program -> press End')
         if keyboard.is_pressed('end'):
             confirm = await asyncio.to_thread(confirmation)
