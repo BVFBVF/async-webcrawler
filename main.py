@@ -294,14 +294,15 @@ def get_main_url(url):
             break
     return url
 
-async def main(urlss):
+async def main():
+    global global_urls
     iteration = 1
     while True:
         start_time = time.time()
         tasks = []
         task_num = 0
         print("Finded URL's")
-        for url in urlss:
+        for url in global_urls:
             task_num += 1
             tasks.append(crawl([url], processed_urls))
             print('Task', task_num, url)
@@ -329,12 +330,10 @@ flag_thread.start()
 
 if __name__ == '__main__':
     while True:
-        print("Enter the initial URL or group of URL's (you need to put the url with a space) for webcrawler to start working:")
+        print("Enter the initial URL for webcrawler to start working:")
         first_url = input().strip()
         if len(first_url) == 0:
             pass
-        urls_list = first_url.split()
-        for url in urls_list:
-            global_urls.append(url)
+        global_urls.append(first_url)
         break
-    asyncio.run(main(global_urls))
+    asyncio.run(main())
