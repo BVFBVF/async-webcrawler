@@ -192,7 +192,6 @@ async def crawl_w_h(url, processed_urls):
             for tag in tags:
                 if tag.get_attribute('href') is not None and (all(re.fullmatch(mask, tag.get_attribute('href')) for mask in dismasks if len(dismasks) != 0) is False or dismasks == False) and tag.get_attribute('href') not in processed_urls and get_http(tag.get_attribute('href')) not in processed_urls:
                     results.append(tag.get_attribute('href'))
-                    processed_urls.append(tag.get_attribute('href'))
             break
         except Exception as error:
             if error_printed == False:
@@ -241,7 +240,6 @@ async def crawl(urls, processed_urls):
                             for tag in tags:
                                 if tag.get_attribute('href') is not None and (all(re.fullmatch(mask, tag.get_attribute('href')) for mask in dismasks if len(dismasks) != 0) is False or dismasks == False) and tag.get_attribute('href') not in processed_urls and get_http(tag.get_attribute('href')) not in processed_urls:
                                     results.append(tag.get_attribute('href'))
-                                    processed_urls.append(tag.get_attribute('href'))
                             break
                     except Exception as error:
                         if error_printed == False:
