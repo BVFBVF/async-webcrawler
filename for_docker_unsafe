@@ -19,7 +19,6 @@ async def crawl_w_h(url, processed_urls):
     results = []
     while True:
         options = uc.ChromeOptions()
-        options.add_argument('--window-position=-10000,-10000')
         options.add_argument('--lang=en')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
@@ -94,7 +93,7 @@ async def crawl(urls, processed_urls):
                         print('Error while getting to url, trying one more time. to learn more about the error, type: "info".')
                         error_printed = True
                     last_error = error
-                    return crawl_w_h(url, processed_urls)
+                    return await crawl_w_h(url, processed_urls)
                 finally:
                     driver.close()
                     return results
@@ -129,27 +128,41 @@ def get_main_url(url):
             break
     return url
 
+skip_extensions = [
+    '.exe', '.bat', '.msi', '.sh', '.bin', '.jar',
+    '.zip', '.rar', '.7z', '.tar', '.gz',
+    '.iso', '.img', '.dll', '.so',
+    '.mp4', '.avi', '.mov', '.wmv',
+    '.mp3', '.wav', '.flac',
+    '.jpg', '.jpeg', '.png', '.gif', '.bmp',
+    '.pdf', '.doc', '.docx', '.xml', '.json', '.ico',
+    '.svg'
+]
+
 async def main():
     global global_urls
+    filtered_results = []
     iteration = 1
     while True:
+        print('ITERATION:', iteration)
         start_time = time.time()
         tasks = []
-        task_num = 0
-        print("Finded URL's:")
         for url in global_urls:
-            task_num += 1
             tasks.append(crawl([url], processed_urls))
-            print('Task', task_num, url)
         global_urls.clear()
         rslts = await asyncio.gather(*tasks)
         flat_results = [item for sublist in rslts if sublist is not None for item in sublist if item is not None]
-        filtered_results = [url for url in flat_results if not url.startswith('http://')]
-        global_urls.extend(i for i in filtered_results)
+        for url in flat_results:
+            if url.startswith('http://') == False:
+                if not any(url.endswith(end) for end in skip_extensions):
+                    filtered_results.append(url)
+        global_urls.extend(filtered_results)
+        print('COUNT OF FOUNDED URLS:', len(global_urls))
         flat_results.clear()
         filtered_results.clear()
         end_time = time.time()
-        print('Elapsed time: ', ceil(end_time - start_time))
+        print('ELAPSED TIME: ', ceil(end_time - start_time))
+        print('||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||')
         iteration += 1
 
 input_thread = threading.Thread(target=user_input_handler, daemon=True)
