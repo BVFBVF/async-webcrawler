@@ -162,7 +162,6 @@ async def main():
         filtered_results.clear()
         end_time = time.time()
         print('ELAPSED TIME: ', ceil(end_time - start_time))
-        print('||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||')
         iteration += 1
 
 input_thread = threading.Thread(target=user_input_handler, daemon=True)
