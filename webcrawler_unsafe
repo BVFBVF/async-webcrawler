@@ -22,8 +22,9 @@ async def crawl_w_h(url, processed_urls):
         options.add_argument('--lang=en')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
+        options.binary_location = '/usr/local/bin/chrome'
         with contextlib.redirect_stderr(None), contextlib.redirect_stdout(None):
-            driver = uc.Chrome(options=options)
+            driver = uc.Chrome(driver_executable_path='/usr/local/bin/chromedriver', options=options)
         time.sleep(2)
         try:
             driver.get(url)
@@ -62,8 +63,9 @@ async def crawl(urls, processed_urls):
                 options.add_argument('--lang=en')
                 options.add_argument('--no-sandbox')
                 options.add_argument('--disable-dev-shm-usage')
+                options.binary_location = '/usr/local/bin/chrome'
                 with contextlib.redirect_stderr(None), contextlib.redirect_stdout(None):
-                    driver = uc.Chrome(options=options)
+                    driver = uc.Chrome(driver_executable_path='/usr/local/bin/chromedriver', options=options)
                 try:
                     driver.get(url)
                     s_code = requests.get(url).status_code
@@ -142,7 +144,7 @@ async def main():
     filtered_results = []
     iteration = 1
     while True:
-        print('ITERATION:', iteration)
+        print('ITERATION', iteration)
         start_time = time.time()
         tasks = []
         for url in global_urls:
@@ -176,4 +178,3 @@ if __name__ == '__main__':
         global_urls.append(first_url)
         break
     asyncio.run(main())
-
