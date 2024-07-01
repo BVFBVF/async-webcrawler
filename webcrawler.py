@@ -13,11 +13,6 @@ import requests
 
 """# SQL
 db_config = {
-    'dbname': 'postgres',
-    'user': 'postgres',
-    'password': 'marenmiroyazza12345',
-    'host': 'localhost',
-    'port': '5432'
 }
 connection = psycopg2.connect(**db_config)
 cursor = connection.cursor()
