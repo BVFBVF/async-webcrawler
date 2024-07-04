@@ -74,7 +74,7 @@ You can also install and run this web crawler locally. However, please note that
     python main.py
     ```
 
-## Commands
+## In programm commands:
 ```cmd
 help
 ```
