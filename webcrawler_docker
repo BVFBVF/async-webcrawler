@@ -301,3 +301,4 @@ if __name__ == '__main__':
                 print("Database name cannot be empty.")
         else:
             print("URL cannot be empty.")
+
