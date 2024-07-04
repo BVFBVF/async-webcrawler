@@ -78,6 +78,7 @@ async def crawl_w_h(url, processed_urls):
         options.add_argument('--lang=en')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
+        options.add_argument('--window-position=-10000,-10000')
         with contextlib.redirect_stderr(None), contextlib.redirect_stdout(None):
             driver = uc.Chrome(options=options)
         try:
