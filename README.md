@@ -22,7 +22,7 @@ The repository contains four versions of the web crawler:
 ### Recommended: Docker Installation
 It is recommended to run this web crawler in a Docker container or any other isolated environment to ensure safety and prevent potential security risks.
 
-#### Installation docker versions
+#### Docker installation
 
 1. **Clone the repository:**
   ```cmd
