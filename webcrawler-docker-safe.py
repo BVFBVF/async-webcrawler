@@ -330,6 +330,7 @@ skip_extensions = [
 ]
 
 async def main(SQL_INSERT_K):
+    print('Program started.')
     global global_urls, table
     rslts = []
     filtered_results = []
