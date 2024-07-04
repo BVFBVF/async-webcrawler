@@ -19,12 +19,13 @@ RUN apt-get update -qq -y && \
     mv chromedriver /usr/local/bin/
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt && echo 'requirements installed sucessfully'
+RUN pip install --no-cache-dir -r requirements.txt && echo 'Requirements installed sucessfully'
 
+COPY webcrawler-docker-respectful.py /web/webcrawler-docker-respectful.py
+COPY webcrawler-docker.py /web/webcrawler-docker.py
+COPY webcrawler-respectful.py /web/webcrawler-respectful.py
 COPY webcrawler.py /web/webcrawler.py
-COPY webcrawler_unsafe.py /web/webcrawler_unsafe.py
-COPY webcrawler_docker.py /web/webcrawler_docker.py
-COPY webcrawler_docker_unsafe.py /web/webcrawler_docker_unsafe.py
+
 WORKDIR /web
 
 CMD ["python", "webcrawler.py"]
