@@ -4,7 +4,6 @@ from selenium.webdriver.common.keys import Keys
 import time
 import asyncio
 import threading
-from math import ceil
 import requests
 import contextlib
 import psycopg2
@@ -296,6 +295,9 @@ def user_input_handler():
             print(last_error)
         elif user_input.lower() == 'show':
             print(global_urls)
+        elif user_input.lower() == 'terminate':
+            print('Terminating process...')
+            quit(0)
 
 def get_http(url):
     if not url.startswith('http://') and not url.startswith('https://'):
@@ -329,10 +331,7 @@ async def main():
     rslts = []
     global global_urls
     filtered_results = []
-    iteration = 1
     while True:
-        print('ITERATION', iteration)
-        start_time = time.time()
         tasks = []
         for url in global_urls:
             tasks.append(crawl([url], processed_urls))
@@ -344,15 +343,12 @@ async def main():
                 if not any(url.endswith(end) for end in skip_extensions):
                     filtered_results.append(url)
         global_urls.extend(filtered_results)
-        print('COUNT OF FOUNDED URLS:', len(global_urls))
+        print(len(global_urls), "url's were found. For each of them keywords were recorded in the database.")
         flat_results.clear()
         filtered_results.clear()
-        end_time = time.time()
-        print('ELAPSED TIME: ', ceil(end_time - start_time))
         if len(global_urls) == 0:
+            print("No url's were found.")
             quit(0)
-        else:
-            iteration += 1
 
 input_thread1 = threading.Thread(target=input_reader, daemon=True)
 input_thread = threading.Thread(target=user_input_handler, daemon=True)
