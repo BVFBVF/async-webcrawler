@@ -12,10 +12,10 @@ An asynchronous web crawler written in Python that extracts keywords from each w
 
 ## Versions
 The repository contains four versions of the web crawler:
-1. **webcrawler.py (ignores robots.txt)**: Designed to run on your main computer and ignores `robots.txt` directives. **Warning: web crawler can get to unsafe links so that can be dangerous.**
+1. **webcrawler.py (ignores robots.txt)**: Designed to run on your main computer and ignores `robots.txt` directives. **Warning: web crawler can get to unsafe links so that can be dangerous, (make sure you are not violating the website’s usage policies and)**
 2. **webcrawler-respectful.py (respects robots.txt)**: Designed to run on your main computer and respects `robots.txt` directives. **Warning: web crawler can get to unsafe links so that can be dangerous.**
-3. **webcrawler-docker.py (ignores robots.txt)**: Designed to run in a Docker container and ignores `robots.txt` directives. **This version is safe because of running in isolated docker-container.**
-4. **webcrawler-docker-respectful.py (respects robots.txt)**: Designed to run in a Docker container and respects `robots.txt` directives. **This version is safe because of running in isolated docker-container.**
+3. **webcrawler-docker.py (ignores robots.txt)** :Designed to run in a Docker container and ignores `robots.txt` directives. **This version is safe due to its execution in an isolated Docker container. However, it disregards the robots.txt file (make sure you are not violating the website’s usage policies).**
+4. **webcrawler-docker-respectful.py (respects robots.txt)**: Designed to run in a Docker container and respects `robots.txt` directives. **This version is safe because of running in isolated docker-container. and respects `robots.txt`**
 
 ## Installation
 
