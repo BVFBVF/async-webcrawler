@@ -4,7 +4,7 @@ An asynchronous web crawler written in Python that extracts keywords from each w
 
 ## Features
 - Asynchronous crawling, offering faster performance compared to synchronous web crawlers.
-- Handles both static and dynamic websites using Selenium, unlike requests, which only supports static websites.
+- Handles both static and dynamic websites using Selenium, unlike Requests, which only supports static websites.
 - Bypasses anti-bot systems with `undetected_chromedriver`
 - Stores keywords in a PostgreSQL database
 - Skips processing of the following file extensions for increased security and relevance: .exe, .bat, .msi, .sh, .bin, .jar, .zip, .rar, .7z, .tar, .gz, .iso, .img, .dll, .so, .mp4, .avi, .mov, .wmv, .mp3, .wav, .flac, .jpg, .jpeg, .png, .gif, .bmp, .pdf, .doc etc...
