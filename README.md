@@ -1,6 +1,6 @@
 # Async WebCrawler
 
-An asynchronous web crawler written in Python that extracts keywords from each website and stores them in a PostgreSQL database. This web crawler simulates user actions using Selenium and bypasses anti-bot systems with undetected_chromedriver. Unlike crawlers that rely on requests, it can handle any type of web page and process links of all kinds. It identifies the keywords that users search for to find a specific website, helping to understand how people are directed to the site through search engines.
+An asynchronous web crawler written in Python that extracts keywords from each website and stores them in a PostgreSQL database. This web crawler simulates user actions using Selenium and bypasses anti-bot systems with undetected_chromedriver. Unlike crawlers that rely on Requests library, it can handle any type of web page and process links of all kinds. It identifies the keywords that users search for to find a specific website, helping to understand how people are directed to the site through search engines.
 
 ## Features
 - Asynchronous crawling, offering faster performance compared to synchronous web crawlers.
