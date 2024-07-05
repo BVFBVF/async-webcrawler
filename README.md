@@ -44,7 +44,7 @@ It is recommended to run this web crawler in a Docker container or any other iso
    python webcrawler_docker.py
    ```
    
-### Alternative: Local Installation (NOT RECOMMENDED)
+### Not recommended: Local Installation
 You can also install and run this web crawler locally. However, please note that this is at your own risk as the crawler may visit potentially harmful websites.
 
 #### Local Installation
